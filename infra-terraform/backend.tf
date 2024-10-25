@@ -8,3 +8,4 @@ terraform {
     dynamodb_table = "gitops-terraform-state-block"
   }
 }
+# terraform init
