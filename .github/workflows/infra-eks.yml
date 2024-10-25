@@ -1,0 +1,73 @@
+name: Infrastructure and EKS Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - '*'   # Capture all branches for testing (optional)
+  workflow_dispatch:
+
+jobs:
+  # First job: Creates the infrastructure
+  terraform-infra:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1.4.0
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init for Infrastructure
+        run: terraform init
+        working-directory: ./infra-terraform
+
+      - name: Terraform format for Infrastructure
+        run: terraform fmt
+        working-directory: ./infra-terraform  
+
+      - name: Terraform Plan for Infrastructure
+        run: terraform plan -out=tfplan
+        working-directory: ./infra-terraform
+
+      - name: Apply Infrastructure
+        run: terraform apply -auto-approve tfplan
+        working-directory: ./infra-terraform
+
+  # Third job: Destroys both infrastructure and EKS if triggered
+  destroy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'destroy')  # Trigger if 'destroy' is in the commit message or if manually triggered
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1.4.0
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init for Infrastructure
+        run: terraform init
+        working-directory: ./infra-terraform
+
+      - name: Terraform Destroy for Infrastructure
+        run: terraform destroy -auto-approve
+        working-directory: ./infra-terraform
